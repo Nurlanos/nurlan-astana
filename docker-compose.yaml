@@ -1,0 +1,88 @@
+services:
+
+  # ─── Mock CRM ────────────────────────────────────────────────────────────────
+  mock-crm:
+    build: ./mock-crm
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mock-crm-http.rule=Host(`crm.zorro.kt`) || Host(`crm.telecom.quest`)
+      - traefik.http.routers.mock-crm-http.entrypoints=web
+      - traefik.http.routers.mock-crm-https.rule=Host(`crm.zorro.kt`) || Host(`crm.telecom.quest`)
+      - traefik.http.routers.mock-crm-https.entrypoints=websecure
+      - traefik.http.routers.mock-crm-https.tls=true
+      - traefik.http.services.mock-crm.loadbalancer.server.port=3000
+
+  # ─── NLP Worker ──────────────────────────────────────────────────────────────
+  nlp-worker:
+    build: ./nlp-worker
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://demo:demo@rabbitmq:5672/
+      ZORROBPM_API: http://api
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    networks:
+      - zorrobpm_default
+    depends_on:
+      - mock-crm
+
+  # ─── CRM Worker ──────────────────────────────────────────────────────────────
+  crm-worker:
+    build: ./crm-worker
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://demo:demo@rabbitmq:5672/
+      ZORROBPM_API: http://api
+      MOCK_CRM_URL: http://mock-crm:3000
+    networks:
+      - zorrobpm_default
+      - dokploy-network
+    depends_on:
+      - mock-crm
+
+  # ─── Chat UI ─────────────────────────────────────────────────────────────────
+  chat-ui:
+    build:
+      context: ./chat-ui
+      args:
+        VITE_BPM_API: https://bpm.zorro.kt
+        VITE_CRM_API: https://crm.zorro.kt
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.chat-ui-http.rule=Host(`chat.zorro.kt`) || Host(`chat.telecom.quest`)
+      - traefik.http.routers.chat-ui-http.entrypoints=web
+      - traefik.http.routers.chat-ui-https.rule=Host(`chat.zorro.kt`) || Host(`chat.telecom.quest`)
+      - traefik.http.routers.chat-ui-https.entrypoints=websecure
+      - traefik.http.routers.chat-ui-https.tls=true
+      - traefik.http.services.chat-ui.loadbalancer.server.port=80
+
+  # ─── Dashboard UI ────────────────────────────────────────────────────────────
+  dashboard-ui:
+    build:
+      context: ./dashboard-ui
+      args:
+        VITE_CRM_API: https://crm.zorro.kt
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard-ui-http.rule=Host(`dashboard.zorro.kt`) || Host(`dashboard.telecom.quest`)
+      - traefik.http.routers.dashboard-ui-http.entrypoints=web
+      - traefik.http.routers.dashboard-ui-https.rule=Host(`dashboard.zorro.kt`) || Host(`dashboard.telecom.quest`)
+      - traefik.http.routers.dashboard-ui-https.entrypoints=websecure
+      - traefik.http.routers.dashboard-ui-https.tls=true
+      - traefik.http.services.dashboard-ui.loadbalancer.server.port=80
+
+networks:
+  zorrobpm_default:
+    external: true
+  dokploy-network:
+    external: true

@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+  targetNamespace="http://bpmn.io/schema/bpmn"
+  id="Definitions_sales">
+
+  <bpmn:process id="sales-activity-logger" name="Sales Activity Logger" isExecutable="true">
+
+    <!-- ─── Start ─────────────────────────────────────────────────────────── -->
+    <bpmn:startEvent id="start" name="Новая активность">
+      <bpmn:outgoing>flow_start_nlp</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- ─── NLP Parse ─────────────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_nlp" name="NLP Parse">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.nlp_parse" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_start_nlp</bpmn:incoming>
+      <bpmn:outgoing>flow_nlp_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Gateway: activity type ───────────────────────────────────────── -->
+    <bpmn:exclusiveGateway id="gw_type" name="Тип активности?" default="flow_gw_unknown">
+      <bpmn:incoming>flow_nlp_gw</bpmn:incoming>
+      <bpmn:outgoing>flow_gw_call</bpmn:outgoing>
+      <bpmn:outgoing>flow_gw_meeting</bpmn:outgoing>
+      <bpmn:outgoing>flow_gw_proposal</bpmn:outgoing>
+      <bpmn:outgoing>flow_gw_deal</bpmn:outgoing>
+      <bpmn:outgoing>flow_gw_unknown</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- ─── Record Call ───────────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_call" name="Записать звонок">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.record_call" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_gw_call</bpmn:incoming>
+      <bpmn:outgoing>flow_call_gw2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Record Meeting ────────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_meeting" name="Записать встречу">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.record_meeting" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_gw_meeting</bpmn:incoming>
+      <bpmn:outgoing>flow_meeting_gw2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Record Proposal ───────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_proposal" name="Записать КП">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.record_proposal" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_gw_proposal</bpmn:incoming>
+      <bpmn:outgoing>flow_proposal_gw2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Update Deal ───────────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_deal" name="Обновить сделку">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.update_deal" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_gw_deal</bpmn:incoming>
+      <bpmn:outgoing>flow_deal_gw2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Join gateway ──────────────────────────────────────────────────── -->
+    <bpmn:exclusiveGateway id="gw_join" name="После записи">
+      <bpmn:incoming>flow_call_gw2</bpmn:incoming>
+      <bpmn:incoming>flow_meeting_gw2</bpmn:incoming>
+      <bpmn:incoming>flow_proposal_gw2</bpmn:incoming>
+      <bpmn:incoming>flow_deal_gw2</bpmn:incoming>
+      <bpmn:incoming>flow_gw_unknown</bpmn:incoming>
+      <bpmn:outgoing>flow_join_gw_followup</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- ─── Gateway: follow-up needed? ──────────────────────────────────── -->
+    <bpmn:exclusiveGateway id="gw_followup" name="Нужен follow-up?" default="flow_followup_no">
+      <bpmn:incoming>flow_join_gw_followup</bpmn:incoming>
+      <bpmn:outgoing>flow_followup_yes</bpmn:outgoing>
+      <bpmn:outgoing>flow_followup_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- ─── Create Follow-up ─────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_followup" name="Создать задачу">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.create_followup" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_followup_yes</bpmn:incoming>
+      <bpmn:outgoing>flow_followup_confirm</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── Confirm Chat ──────────────────────────────────────────────────── -->
+    <bpmn:serviceTask id="task_confirm" name="Подтвердить в чате">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sales.confirm_chat" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_followup_confirm</bpmn:incoming>
+      <bpmn:incoming>flow_followup_no</bpmn:incoming>
+      <bpmn:outgoing>flow_confirm_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ─── End ──────────────────────────────────────────────────────────── -->
+    <bpmn:endEvent id="end" name="Активность записана">
+      <bpmn:incoming>flow_confirm_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- ─── Sequence Flows ───────────────────────────────────────────────── -->
+    <bpmn:sequenceFlow id="flow_start_nlp"       sourceRef="start"       targetRef="task_nlp" />
+    <bpmn:sequenceFlow id="flow_nlp_gw"          sourceRef="task_nlp"    targetRef="gw_type" />
+
+    <bpmn:sequenceFlow id="flow_gw_call"         sourceRef="gw_type"     targetRef="task_call">
+      <bpmn:conditionExpression>=activity_type = "call"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_gw_meeting"      sourceRef="gw_type"     targetRef="task_meeting">
+      <bpmn:conditionExpression>=activity_type = "meeting"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_gw_proposal"     sourceRef="gw_type"     targetRef="task_proposal">
+      <bpmn:conditionExpression>=activity_type = "proposal"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_gw_deal"         sourceRef="gw_type"     targetRef="task_deal">
+      <bpmn:conditionExpression>=activity_type = "deal"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_gw_unknown"      sourceRef="gw_type"     targetRef="gw_join" />
+
+    <bpmn:sequenceFlow id="flow_call_gw2"        sourceRef="task_call"     targetRef="gw_join" />
+    <bpmn:sequenceFlow id="flow_meeting_gw2"     sourceRef="task_meeting"  targetRef="gw_join" />
+    <bpmn:sequenceFlow id="flow_proposal_gw2"    sourceRef="task_proposal" targetRef="gw_join" />
+    <bpmn:sequenceFlow id="flow_deal_gw2"        sourceRef="task_deal"     targetRef="gw_join" />
+
+    <bpmn:sequenceFlow id="flow_join_gw_followup" sourceRef="gw_join"     targetRef="gw_followup" />
+
+    <bpmn:sequenceFlow id="flow_followup_yes"    sourceRef="gw_followup"  targetRef="task_followup">
+      <bpmn:conditionExpression>=next_step != null and next_step != ""</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_followup_no"     sourceRef="gw_followup"  targetRef="task_confirm" />
+
+    <bpmn:sequenceFlow id="flow_followup_confirm" sourceRef="task_followup" targetRef="task_confirm" />
+    <bpmn:sequenceFlow id="flow_confirm_end"     sourceRef="task_confirm" targetRef="end" />
+
+  </bpmn:process>
+
+  <!-- ─── Diagram ─────────────────────────────────────────────────────────── -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="sales-activity-logger">
+
+      <bpmndi:BPMNShape id="start_di"       bpmnElement="start"       isMarkerVisible="true">
+        <dc:Bounds x="152" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="130" y="275" width="80" height="27" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="task_nlp_di"    bpmnElement="task_nlp">
+        <dc:Bounds x="240" y="210" width="120" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="gw_type_di"     bpmnElement="gw_type"     isMarkerVisible="true">
+        <dc:Bounds x="415" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="395" y="282" width="90" height="27" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="task_call_di"   bpmnElement="task_call">
+        <dc:Bounds x="530" y="80" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="task_meeting_di" bpmnElement="task_meeting">
+        <dc:Bounds x="530" y="180" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="task_proposal_di" bpmnElement="task_proposal">
+        <dc:Bounds x="530" y="280" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="task_deal_di"   bpmnElement="task_deal">
+        <dc:Bounds x="530" y="380" width="120" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="gw_join_di"     bpmnElement="gw_join"     isMarkerVisible="true">
+        <dc:Bounds x="715" y="225" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="gw_followup_di" bpmnElement="gw_followup" isMarkerVisible="true">
+        <dc:Bounds x="825" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="803" y="282" width="94" height="27" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="task_followup_di" bpmnElement="task_followup">
+        <dc:Bounds x="940" y="130" width="120" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="task_confirm_di" bpmnElement="task_confirm">
+        <dc:Bounds x="1120" y="210" width="120" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="end_di"         bpmnElement="end">
+        <dc:Bounds x="1302" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1278" y="275" width="84" height="27" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- flows -->
+      <bpmndi:BPMNEdge id="flow_start_nlp_di"        bpmnElement="flow_start_nlp"><di:waypoint x="188" y="250" /><di:waypoint x="240" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_nlp_gw_di"           bpmnElement="flow_nlp_gw"><di:waypoint x="360" y="250" /><di:waypoint x="415" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_gw_call_di"          bpmnElement="flow_gw_call"><di:waypoint x="440" y="225" /><di:waypoint x="440" y="120" /><di:waypoint x="530" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_gw_meeting_di"       bpmnElement="flow_gw_meeting"><di:waypoint x="440" y="225" /><di:waypoint x="440" y="220" /><di:waypoint x="530" y="220" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_gw_proposal_di"      bpmnElement="flow_gw_proposal"><di:waypoint x="440" y="275" /><di:waypoint x="440" y="320" /><di:waypoint x="530" y="320" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_gw_deal_di"          bpmnElement="flow_gw_deal"><di:waypoint x="440" y="275" /><di:waypoint x="440" y="420" /><di:waypoint x="530" y="420" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_gw_unknown_di"       bpmnElement="flow_gw_unknown"><di:waypoint x="465" y="250" /><di:waypoint x="715" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_call_gw2_di"         bpmnElement="flow_call_gw2"><di:waypoint x="650" y="120" /><di:waypoint x="740" y="120" /><di:waypoint x="740" y="225" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_meeting_gw2_di"      bpmnElement="flow_meeting_gw2"><di:waypoint x="650" y="220" /><di:waypoint x="715" y="220" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_proposal_gw2_di"     bpmnElement="flow_proposal_gw2"><di:waypoint x="650" y="320" /><di:waypoint x="740" y="320" /><di:waypoint x="740" y="275" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_deal_gw2_di"         bpmnElement="flow_deal_gw2"><di:waypoint x="650" y="420" /><di:waypoint x="740" y="420" /><di:waypoint x="740" y="275" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_join_gw_followup_di" bpmnElement="flow_join_gw_followup"><di:waypoint x="765" y="250" /><di:waypoint x="825" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_followup_yes_di"     bpmnElement="flow_followup_yes"><di:waypoint x="850" y="225" /><di:waypoint x="850" y="170" /><di:waypoint x="940" y="170" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_followup_no_di"      bpmnElement="flow_followup_no"><di:waypoint x="875" y="250" /><di:waypoint x="1120" y="250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_followup_confirm_di" bpmnElement="flow_followup_confirm"><di:waypoint x="1060" y="170" /><di:waypoint x="1180" y="170" /><di:waypoint x="1180" y="210" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_confirm_end_di"      bpmnElement="flow_confirm_end"><di:waypoint x="1240" y="250" /><di:waypoint x="1302" y="250" /></bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

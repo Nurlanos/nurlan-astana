@@ -1,0 +1,9 @@
+Endpoint,Метод,Описание,Входные параметры,Пример ответа,Итерация
+POST /activities,POST,Создать запись активности,"user_id, type, client, date, duration, result, next_step","{""id"": ""act_001"", ""status"": ""created""}",1
+GET /activities/{userId},GET,Получить активности продажника за период,"userId (path), date_from, date_to, type (query)","{""total"": 12, ""items"": [...]}",1
+GET /dashboard/team,GET,Сводка активностей команды для менеджера,"team_id, date_from, date_to (query)","{""members"": [{""user_id"": ""..., ""calls"": 5, ""meetings"": 2}]}",1
+POST /tasks,POST,Создать follow-up задачу,"user_id, activity_id, due_date, description","{""id"": ""task_042"", ""status"": ""open""}",1
+PUT /deals/{dealId}/stage,PUT,Обновить этап сделки,"dealId (path), stage, reason, user_id","{""deal_id"": ""..., ""stage"": ""negotiation""}",1
+GET /activities/{userId}/summary,GET,Личная сводка продажника (дашборд),"userId (path), period: day или week","{""calls"": 3, ""meetings"": 1, ""proposals"": 2, ""plan_pct"": 75}",1
+POST /notifications,POST,Отправить уведомление менеджеру,"manager_id, message, type: alert|info","{""notification_id"": ""..., ""sent"": true}",1
+GET /users/{userId},GET,Получить профиль пользователя по ID,"userId (path)","{""id"": ""..., ""name"": ""..., ""role"": ""sales""}",1
