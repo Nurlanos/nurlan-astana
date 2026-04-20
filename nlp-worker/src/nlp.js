@@ -82,5 +82,13 @@ export async function parseActivity(rawText) {
     console.log('[nlp] mock mode (no ANTHROPIC_API_KEY)');
     return mockParse(rawText);
   }
-  return claudeParse(rawText);
+  try {
+    return await claudeParse(rawText);
+  } catch (err) {
+    if (err.message?.includes('credit balance') || err.message?.includes('529') || err.status === 529) {
+      console.warn('[nlp] Claude API unavailable, falling back to regex parser');
+      return mockParse(rawText);
+    }
+    throw err;
+  }
 }

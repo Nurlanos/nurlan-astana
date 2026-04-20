@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getUsers, startProcess, pollInstance, extractConfirmation } from './api';
+import { getUsers, logActivity } from './api';
 
 const EXAMPLES = [
   'Позвонил Нурлану из Казмунайгаз, 20 минут, договорились о встрече в пятницу',
@@ -46,7 +46,6 @@ export default function App() {
   const [text, setText]       = useState('');
   const [status, setStatus]   = useState('idle');
   const [history, setHistory] = useState([]);
-  const abortRef              = useRef(null);
   const textareaRef           = useRef(null);
 
   useEffect(() => {
@@ -57,7 +56,6 @@ export default function App() {
 
   async function handleSend() {
     if (!text.trim() || !userId || status === 'sending') return;
-    abortRef.current = new AbortController();
     setStatus('sending');
 
     const userName = users.find(u => u.id === userId)?.name ?? userId;
@@ -65,10 +63,8 @@ export default function App() {
     const entry = { id: Date.now(), user: userName, text: text.trim(), time: now };
 
     try {
-      const instanceId   = await startProcess(userId, text.trim());
-      const instance     = await pollInstance(instanceId, { signal: abortRef.current.signal });
-      const confirmation = extractConfirmation(instance) ?? 'Активность зафиксирована';
-      setHistory(h => [{ ...entry, confirmation }, ...h]);
+      const { confirmation_text } = await logActivity(userId, text.trim());
+      setHistory(h => [{ ...entry, confirmation: confirmation_text ?? 'Активность зафиксирована' }, ...h]);
       setStatus('ok');
       setText('');
     } catch (err) {

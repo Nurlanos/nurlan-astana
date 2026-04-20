@@ -257,6 +257,93 @@ app.get('/users', (req, res) => {
 
 // ─── healthcheck ──────────────────────────────────────────────────────────────
 
+// ─── POST /log-activity ───────────────────────────────────────────────────────
+// Единый эндпоинт для чата: парсит raw_text, записывает активность, возвращает подтверждение
+
+const DEAL_WORDS     = /сделк|этап\s+воронк|перевёл.*этап|закрыл\s+сделк|выиграл|проиграл/i;
+const CALL_WORDS     = /позвон|созвон|набрал|перезвон|звонок|звонил|телефон/i;
+const MEETING_WORDS  = /встреч|переговор|совещани|встретил|провёл встреч|онлайн|zoom|teams/i;
+const PROPOSAL_WORDS = /(?<![а-яё])кп(?![а-яё])|коммерческ|предложени|оффер|отправил письм|выслал/i;
+const DURATION_RE    = /(\d+(?:[.,]\d+)?)\s*(минут|мин|час|ч\b)/i;
+const CLIENT_RE      = /(?:из|с\s+компани|компани[ия]|клиент[у]?)\s+([А-ЯA-Z«"'][^\s,][^,.\n]{2,40}?)(?:\s+(?:по|на|для|об|,)|\s*[,.]|$)/i;
+const NEXT_RE        = /договорил[ись]?\s+о\s+([^,.]{3,60})|следующ[а-я]+\s+шаг[:\s]+([^,.]{3,60})/i;
+
+function nlpParse(text) {
+  let activity_type = 'unknown';
+  if      (DEAL_WORDS.test(text))     activity_type = 'deal';
+  else if (CALL_WORDS.test(text))     activity_type = 'call';
+  else if (MEETING_WORDS.test(text))  activity_type = 'meeting';
+  else if (PROPOSAL_WORDS.test(text)) activity_type = 'proposal';
+
+  let duration_min = null;
+  const dm = text.match(DURATION_RE);
+  if (dm) {
+    const n = parseFloat(dm[1].replace(',', '.'));
+    duration_min = dm[2].startsWith('ч') ? Math.round(n * 60) : Math.round(n);
+  }
+
+  let client = null;
+  const cm = text.match(CLIENT_RE);
+  if (cm) client = cm[1].trim();
+
+  let next_step = null;
+  const ns = text.match(NEXT_RE);
+  if (ns) next_step = (ns[1] ?? ns[2]).trim();
+
+  const parts = text.split(/,\s*/);
+  const result = parts.length > 1 ? parts[parts.length - 1].trim() : null;
+
+  return { activity_type, client, duration_min, result, next_step };
+}
+
+function buildConfirmation(parsed, activityId) {
+  const label = { call: 'Звонок', meeting: 'Встреча', proposal: 'КП', deal: 'Сделка', unknown: 'Активность' };
+  const lines = [`✓ ${label[parsed.activity_type] ?? 'Активность'} зафиксирован(а) [${activityId}]`];
+  if (parsed.client)    lines.push(`Клиент: ${parsed.client}`);
+  if (parsed.duration_min) lines.push(`Длительность: ${parsed.duration_min} мин`);
+  if (parsed.result)    lines.push(`Итог: ${parsed.result}`);
+  if (parsed.next_step) lines.push(`Следующий шаг: ${parsed.next_step}`);
+  return lines.join('\n');
+}
+
+app.post('/log-activity', (req, res) => {
+  const { user_id, raw_text } = req.body;
+  if (!user_id || !raw_text) return res.status(400).json({ error: 'user_id and raw_text are required' });
+
+  const parsed = nlpParse(raw_text);
+
+  const activity = {
+    id:           `act_${randomUUID().slice(0, 8)}`,
+    user_id,
+    type:         parsed.activity_type === 'unknown' ? 'call' : parsed.activity_type,
+    client:       parsed.client ?? null,
+    date:         new Date().toISOString(),
+    duration_min: parsed.duration_min ?? null,
+    result:       parsed.result ?? null,
+    next_step:    parsed.next_step ?? null,
+    deal_stage:   null,
+    created_at:   new Date().toISOString(),
+  };
+  db.activities.push(activity);
+
+  if (parsed.next_step) {
+    db.tasks.push({
+      id:          `task_${randomUUID().slice(0, 8)}`,
+      user_id,
+      activity_id: activity.id,
+      due_date:    null,
+      description: parsed.next_step,
+      status:      'open',
+      created_at:  new Date().toISOString(),
+    });
+  }
+
+  res.json({
+    activity_id:       activity.id,
+    confirmation_text: buildConfirmation(parsed, activity.id),
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',

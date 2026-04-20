@@ -36,8 +36,11 @@ function buildVariables(parsed) {
 }
 
 async function handleJob(job, ch, msg) {
-  const { taskId, variables } = job;
-  const rawText = variables?.raw_text ?? variables?.rawText ?? '';
+  const taskId = job.serviceTaskId ?? job.taskId;
+  const { variables } = job;
+  const rawText = Array.isArray(variables)
+    ? (variables.find(v => v.name === 'raw_text')?.value ?? '')
+    : (variables?.raw_text ?? variables?.rawText ?? '');
 
   console.log(`[nlp] taskId=${taskId} text="${rawText.slice(0, 80)}"`);
 

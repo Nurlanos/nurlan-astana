@@ -19,6 +19,18 @@
     <bpmn:serviceTask id="task_nlp" name="NLP Parse">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.nlp_parse" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"       target="user_id" />
+          <zeebe:input source="=raw_text"      target="raw_text" />
+          <zeebe:output source="=activity_type" target="activity_type" />
+          <zeebe:output source="=parse_error"   target="parse_error" />
+          <zeebe:output source="=client"        target="client" />
+          <zeebe:output source="=activity_date" target="activity_date" />
+          <zeebe:output source="=duration_min"  target="duration_min" />
+          <zeebe:output source="=result"        target="result" />
+          <zeebe:output source="=next_step"     target="next_step" />
+          <zeebe:output source="=deal_stage"    target="deal_stage" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_start_nlp</bpmn:incoming>
       <bpmn:outgoing>flow_nlp_gw</bpmn:outgoing>
@@ -38,6 +50,16 @@
     <bpmn:serviceTask id="task_call" name="Записать звонок">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.record_call" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"       target="user_id" />
+          <zeebe:input source="=client"        target="client" />
+          <zeebe:input source="=activity_date" target="activity_date" />
+          <zeebe:input source="=duration_min"  target="duration_min" />
+          <zeebe:input source="=result"        target="result" />
+          <zeebe:input source="=next_step"     target="next_step" />
+          <zeebe:input source="=deal_stage"    target="deal_stage" />
+          <zeebe:output source="=activity_id"  target="activity_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_gw_call</bpmn:incoming>
       <bpmn:outgoing>flow_call_gw2</bpmn:outgoing>
@@ -47,6 +69,16 @@
     <bpmn:serviceTask id="task_meeting" name="Записать встречу">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.record_meeting" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"       target="user_id" />
+          <zeebe:input source="=client"        target="client" />
+          <zeebe:input source="=activity_date" target="activity_date" />
+          <zeebe:input source="=duration_min"  target="duration_min" />
+          <zeebe:input source="=result"        target="result" />
+          <zeebe:input source="=next_step"     target="next_step" />
+          <zeebe:input source="=deal_stage"    target="deal_stage" />
+          <zeebe:output source="=activity_id"  target="activity_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_gw_meeting</bpmn:incoming>
       <bpmn:outgoing>flow_meeting_gw2</bpmn:outgoing>
@@ -56,6 +88,16 @@
     <bpmn:serviceTask id="task_proposal" name="Записать КП">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.record_proposal" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"       target="user_id" />
+          <zeebe:input source="=client"        target="client" />
+          <zeebe:input source="=activity_date" target="activity_date" />
+          <zeebe:input source="=duration_min"  target="duration_min" />
+          <zeebe:input source="=result"        target="result" />
+          <zeebe:input source="=next_step"     target="next_step" />
+          <zeebe:input source="=deal_stage"    target="deal_stage" />
+          <zeebe:output source="=activity_id"  target="activity_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_gw_proposal</bpmn:incoming>
       <bpmn:outgoing>flow_proposal_gw2</bpmn:outgoing>
@@ -65,6 +107,13 @@
     <bpmn:serviceTask id="task_deal" name="Обновить сделку">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.update_deal" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"      target="user_id" />
+          <zeebe:input source="=client"       target="client" />
+          <zeebe:input source="=deal_stage"   target="deal_stage" />
+          <zeebe:input source="=result"       target="result" />
+          <zeebe:output source="=activity_id" target="activity_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_gw_deal</bpmn:incoming>
       <bpmn:outgoing>flow_deal_gw2</bpmn:outgoing>
@@ -91,6 +140,12 @@
     <bpmn:serviceTask id="task_followup" name="Создать задачу">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.create_followup" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=user_id"      target="user_id" />
+          <zeebe:input source="=activity_id"  target="activity_id" />
+          <zeebe:input source="=next_step"    target="next_step" />
+          <zeebe:output source="=task_id"     target="task_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_followup_yes</bpmn:incoming>
       <bpmn:outgoing>flow_followup_confirm</bpmn:outgoing>
@@ -100,6 +155,16 @@
     <bpmn:serviceTask id="task_confirm" name="Подтвердить в чате">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sales.confirm_chat" retries="3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=activity_type" target="activity_type" />
+          <zeebe:input source="=activity_id"   target="activity_id" />
+          <zeebe:input source="=client"        target="client" />
+          <zeebe:input source="=activity_date" target="activity_date" />
+          <zeebe:input source="=duration_min"  target="duration_min" />
+          <zeebe:input source="=result"        target="result" />
+          <zeebe:input source="=next_step"     target="next_step" />
+          <zeebe:output source="=confirmation_text" target="confirmation_text" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>flow_followup_confirm</bpmn:incoming>
       <bpmn:incoming>flow_followup_no</bpmn:incoming>

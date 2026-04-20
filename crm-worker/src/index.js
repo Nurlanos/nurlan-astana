@@ -39,7 +39,8 @@ async function processMessage(queue, msg, ch) {
     return;
   }
 
-  const { taskId, variables } = job;
+  const taskId = job.serviceTaskId ?? job.taskId;
+  const { variables } = job;
   console.log(`[crm] ${queue.split('.').pop()} taskId=${taskId}`);
 
   const handler = ROUTES[queue];
